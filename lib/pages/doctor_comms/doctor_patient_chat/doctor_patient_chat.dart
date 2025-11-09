@@ -106,7 +106,7 @@ class _DoctorPatientChatWidgetState extends State<DoctorPatientChatWidget> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Couldn't find assigned doctor.',
+              'Couldn\'t find assigned doctor.',
               style: FlutterFlowTheme.of(context).bodyLarge.override(
                     fontFamily: 'Gilroy',
                     color: FlutterFlowTheme.of(context).primaryText,
@@ -304,7 +304,7 @@ class _DoctorPatientChatWidgetState extends State<DoctorPatientChatWidget> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Couldn't load messages.',
+                                  'Couldn\'t load messages.',
                                   style: FlutterFlowTheme.of(context)
                                       .bodyLarge
                                       .override(

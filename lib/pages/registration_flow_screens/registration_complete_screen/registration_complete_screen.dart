@@ -202,7 +202,7 @@ class _LoadingSection extends StatelessWidget {
                       ),
                 ),
                 Text(
-                  'We're assigning you a doctor...',
+                  'We\'re assigning you a doctor...',
                   textAlign: TextAlign.center,
                   style: FlutterFlowTheme.of(context).bodyLarge.override(
                         fontFamily: 'Gilroy',
