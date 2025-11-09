@@ -676,7 +676,7 @@ class _AudioPlayerSection extends StatelessWidget {
               FlutterFlowAudioPlayer(
                 audio: Audio.network(
                   functions.stringToAudioPath(audioUrl)!,
-                  metas: const Metas(
+                  metas: Metas(
                     title: 'Listen to Article',
                   ),
                 ),

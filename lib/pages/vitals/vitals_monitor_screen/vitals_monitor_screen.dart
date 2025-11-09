@@ -4928,7 +4928,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       '7d'
                                                     ],
                                                     onChanged: (val) async {
-                                                      safeSetState(() =>                                                           .dropDownValue = val);
+                                                      safeSetState(() => dropDownValue = val);
                                                       selectedTimeRange =
                                                           dropDownValue!;
                                                       safeSetState(() {});
@@ -4995,14 +4995,14 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                         builder: (context) {
                                                           if (functions
                                                                   .getHistoryCount(
-                                                                          .vitalsHistoryString!) >
+                                                                          vitalsHistoryString!) >
                                                               0) {
                                                             return Builder(
                                                               builder:
                                                                   (context) {
                                                                 final vitalsList = functions
                                                                     .generateIndexList(
-                                                                            .vitalsHistoryString!)
+                                                                            vitalsHistoryString!)
                                                                     .toList();
 
                                                                 return ListView
