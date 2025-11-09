@@ -14,8 +14,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 import 'package:provider/provider.dart';
-import 'vitals_monitor_screen_model.dart';
-export 'vitals_monitor_screen_model.dart';
 
 class VitalsMonitorScreenWidget extends StatefulWidget {
   const VitalsMonitorScreenWidget({super.key});
@@ -30,92 +28,165 @@ class VitalsMonitorScreenWidget extends StatefulWidget {
 
 class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
     with TickerProviderStateMixin {
-  late VitalsMonitorScreenModel _model;
+  // Local state fields
+  bool vitalsMonitoringActive = false;
+  DateTime? lastUpdateTime;
+  String? connectionError;
+  int pollingInterval = 5;
+  String? vitalsHistoryString;
+  bool historyLoading = false;
+  String selectedTimeRange = '24h';
+  String? patientId;
+  String? deviceId;
+  String? currentVitalsJson;
+  dynamic currentVitals;
+  bool isLoading = false;
+  double? editHR;
+  double? editTemp;
+  double? editSys;
+  double? editDia;
+  double? editFHR;
+  double? editWeight;
+  bool isEditingHR = false;
+  bool isEditingTemp = false;
+  bool isEditingBP = false;
+  bool isEditingFHR = false;
+  bool isEditingWeight = false;
+
+  // Action output results
+  String? normPid;
+  dynamic? riskScore;
+  TabController? tabBarController;
+  int get tabBarCurrentIndex =>
+      tabBarController != null ? tabBarController!.index : 0;
+  int get tabBarPreviousIndex =>
+      tabBarController != null ? tabBarController!.previousIndex : 0;
+  String? refreshedVitalsData;
+  String? initialVitalsData;
+  dynamic? result;
+
+  // Text editing controllers and focus nodes
+  FocusNode? editHRFocusNode;
+  TextEditingController? editHRTextController;
+  String? Function(BuildContext, String?)? editHRTextControllerValidator;
+  ApiCallResponse? patchHR;
+  FocusNode? editFHRFocusNode;
+  TextEditingController? editFHRTextController;
+  String? Function(BuildContext, String?)? editFHRTextControllerValidator;
+  ApiCallResponse? patchFHR;
+  FocusNode? editTempFocusNode;
+  TextEditingController? editTempTextController;
+  String? Function(BuildContext, String?)? editTempTextControllerValidator;
+  ApiCallResponse? patchTemp;
+  FocusNode? editSysFocusNode;
+  TextEditingController? editSysTextController;
+  String? Function(BuildContext, String?)? editSysTextControllerValidator;
+  FocusNode? editDiaFocusNode;
+  TextEditingController? editDiaTextController;
+  String? Function(BuildContext, String?)? editDiaTextControllerValidator;
+  ApiCallResponse? patchSys;
+  ApiCallResponse? patchDia;
+  FocusNode? editWeightFocusNode;
+  TextEditingController? editWeightTextController;
+  String? Function(BuildContext, String?)? editWeightTextControllerValidator;
+  ApiCallResponse? patchWeight;
+  String? historyDataString;
+  String? dropDownValue;
+  FormFieldController<String>? dropDownValueController;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _model = createModel(context, () => VitalsMonitorScreenModel());
-
     // On page load action.
     SchedulerBinding.instance.addPostFrameCallback((_) async {
       FFAppState().patientPhoneId = currentPhoneNumber;
       safeSetState(() {});
-      _model.normPid = await actions.normalizePatientId(
+      normPid = await actions.normalizePatientId(
         FFAppState().patientPhoneId,
       );
-      FFAppState().patientPhoneId = _model.normPid!;
+      FFAppState().patientPhoneId = normPid!;
       safeSetState(() {});
-      _model.riskScore = await actions.fetchCurrentRiskScore(
+      riskScore = await actions.fetchCurrentRiskScore(
         FFAppState().patientPhoneId,
       );
-      FFAppState().currentRiskData = _model.riskScore!;
+      FFAppState().currentRiskData = riskScore!;
       safeSetState(() {});
     });
 
-    _model.tabBarController = TabController(
+    tabBarController = TabController(
       vsync: this,
       length: 2,
       initialIndex: 0,
     )..addListener(() => safeSetState(() {}));
 
-    _model.editHRTextController ??= TextEditingController(
+    editHRTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       functions.parseVitalsDataString(
           FFAppState().currentVitalsData, 'heartRate'),
       '--',
     ));
-    _model.editHRFocusNode ??= FocusNode();
+    editHRFocusNode ??= FocusNode();
 
-    _model.editFHRTextController ??= TextEditingController(
+    editFHRTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       functions.parseVitalsDataString(
           FFAppState().currentVitalsData, 'fetalHeartRate'),
       '--',
     ));
-    _model.editFHRFocusNode ??= FocusNode();
+    editFHRFocusNode ??= FocusNode();
 
-    _model.editTempTextController ??= TextEditingController(
+    editTempTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       functions.parseVitalsDataString(
           FFAppState().currentVitalsData, 'temperature'),
       '--',
     ));
-    _model.editTempFocusNode ??= FocusNode();
+    editTempFocusNode ??= FocusNode();
 
-    _model.editSysTextController ??= TextEditingController(
+    editSysTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       functions.parseVitalsDataString(
           FFAppState().currentVitalsData, 'systolic'),
       '--',
     ));
-    _model.editSysFocusNode ??= FocusNode();
+    editSysFocusNode ??= FocusNode();
 
-    _model.editDiaTextController ??= TextEditingController(
+    editDiaTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       functions.parseVitalsDataString(
           FFAppState().currentVitalsData, 'diastolic'),
       '--',
     ));
-    _model.editDiaFocusNode ??= FocusNode();
+    editDiaFocusNode ??= FocusNode();
 
-    _model.editWeightTextController ??= TextEditingController(
+    editWeightTextController ??= TextEditingController(
         text: valueOrDefault<String>(
       getJsonField(
-        _model.currentVitals,
+        currentVitals,
         r'''$.vitals.weight.value''',
       )?.toString(),
       '--',
     ));
-    _model.editWeightFocusNode ??= FocusNode();
+    editWeightFocusNode ??= FocusNode();
   }
 
   @override
   void dispose() {
-    _model.dispose();
-
+    tabBarController?.dispose();
+    editHRFocusNode?.dispose();
+    editHRTextController?.dispose();
+    editFHRFocusNode?.dispose();
+    editFHRTextController?.dispose();
+    editTempFocusNode?.dispose();
+    editTempTextController?.dispose();
+    editSysFocusNode?.dispose();
+    editSysTextController?.dispose();
+    editDiaFocusNode?.dispose();
+    editDiaTextController?.dispose();
+    editWeightFocusNode?.dispose();
+    editWeightTextController?.dispose();
     super.dispose();
   }
 
@@ -253,7 +324,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                             text: 'History',
                           ),
                         ],
-                        controller: _model.tabBarController,
+                        controller: tabBarController,
                         onTap: (i) async {
                           [() async {}, () async {}][i]();
                         },
@@ -261,7 +332,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                     ),
                     Expanded(
                       child: TabBarView(
-                        controller: _model.tabBarController,
+                        controller: tabBarController,
                         children: [
                           Stack(
                             children: [
@@ -270,17 +341,17 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     0.0, 16.0, 0.0, 0.0),
                                 child: RefreshIndicator(
                                   onRefresh: () async {
-                                    _model.refreshedVitalsData =
+                                    refreshedVitalsData =
                                         await actions.getCurrentVitalsREST(
                                       FFAppState().vitalsDeviceId,
                                       FFAppState().firebaseRestApiUrl,
                                     );
-                                    if (_model.refreshedVitalsData != null &&
-                                        _model.refreshedVitalsData != '') {
+                                    if (refreshedVitalsData != null &&
+                                        refreshedVitalsData != '') {
                                       FFAppState().currentVitalsData =
-                                          _model.refreshedVitalsData!;
+                                          refreshedVitalsData!;
                                       safeSetState(() {});
-                                      _model.lastUpdateTime =
+                                      lastUpdateTime =
                                           getCurrentTimestamp;
                                       safeSetState(() {});
                                     } else {
@@ -517,13 +588,13 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                   () async {
                                                                 await actions
                                                                     .stopVitalsMonitoringREST();
-                                                                _model.vitalsMonitoringActive =
+                                                                vitalsMonitoringActive =
                                                                     false;
                                                                 safeSetState(
                                                                     () {});
-                                                                _model.lastUpdateTime =
+                                                                lastUpdateTime =
                                                                     null;
-                                                                _model.connectionError =
+                                                                connectionError =
                                                                     '';
                                                                 safeSetState(
                                                                     () {});
@@ -603,7 +674,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                             return FFButtonWidget(
                                                               onPressed:
                                                                   () async {
-                                                                _model.vitalsMonitoringActive =
+                                                                vitalsMonitoringActive =
                                                                     true;
                                                                 safeSetState(
                                                                     () {});
@@ -639,7 +710,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                             .micContainerBackground,
                                                                   ),
                                                                 );
-                                                                _model.initialVitalsData =
+                                                                initialVitalsData =
                                                                     await actions
                                                                         .getCurrentVitalsREST(
                                                                   FFAppState()
@@ -647,9 +718,9 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                   FFAppState()
                                                                       .firebaseRestApiUrl,
                                                                 );
-                                                                if (_model.initialVitalsData !=
+                                                                if (initialVitalsData !=
                                                                         null &&
-                                                                    _model.initialVitalsData !=
+                                                                    initialVitalsData !=
                                                                         '') {
                                                                   FFAppState()
                                                                           .currentVitalsData =
@@ -662,11 +733,11 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                       'connected';
                                                                   safeSetState(
                                                                       () {});
-                                                                  _model.lastUpdateTime =
+                                                                  lastUpdateTime =
                                                                       getCurrentTimestamp;
                                                                   safeSetState(
                                                                       () {});
-                                                                  _model.connectionError =
+                                                                  connectionError =
                                                                       '';
                                                                   safeSetState(
                                                                       () {});
@@ -679,7 +750,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                       'no_data';
                                                                   safeSetState(
                                                                       () {});
-                                                                  _model.connectionError =
+                                                                  connectionError =
                                                                       'No vitals data found.';
                                                                   safeSetState(
                                                                       () {});
@@ -949,7 +1020,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
-                                                                    _model.isEditingHR =
+                                                                    isEditingHR =
                                                                         true;
                                                                     safeSetState(
                                                                         () {});
@@ -1157,7 +1228,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
-                                                                    _model.isEditingFHR =
+                                                                    isEditingFHR =
                                                                         true;
                                                                     safeSetState(
                                                                         () {});
@@ -1523,7 +1594,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
-                                                                    _model.isEditingTemp =
+                                                                    isEditingTemp =
                                                                         true;
                                                                     safeSetState(
                                                                         () {});
@@ -1736,7 +1807,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
-                                                                    _model.isEditingBP =
+                                                                    isEditingBP =
                                                                         true;
                                                                     safeSetState(
                                                                         () {});
@@ -1944,7 +2015,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                 FFButtonWidget(
                                                                   onPressed:
                                                                       () async {
-                                                                    _model.isEditingWeight =
+                                                                    isEditingWeight =
                                                                         true;
                                                                     safeSetState(
                                                                         () {});
@@ -2031,7 +2102,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                   ),
                                                   Text(
                                                     valueOrDefault<String>(
-                                                      _model.lastUpdateTime !=
+                                                      lastUpdateTime !=
                                                               null
                                                           ? dateTimeFormat(
                                                               "jms",
@@ -2050,7 +2121,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                 ],
                                               ),
                                             ),
-                                            if (_model.vitalsMonitoringActive ==
+                                            if (vitalsMonitoringActive ==
                                                 true)
                                               Padding(
                                                 padding: EdgeInsetsDirectional
@@ -2184,14 +2255,14 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                     highlightColor:
                                                         Colors.transparent,
                                                     onTap: () async {
-                                                      _model.result = await actions
+                                                      result = await actions
                                                           .fetchCurrentRiskScore(
                                                         FFAppState()
                                                             .patientPhoneId,
                                                       );
                                                       FFAppState()
                                                               .currentRiskData =
-                                                          _model.result!;
+                                                          result!;
                                                       safeSetState(() {});
 
                                                       safeSetState(() {});
@@ -2340,7 +2411,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     ),
                                   ),
                                 ),
-                              if (_model.isEditingHR == true)
+                              if (isEditingHR == true)
                                 Align(
                                   alignment: AlignmentDirectional(0.0, 1.0),
                                   child: Container(
@@ -2584,7 +2655,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.isEditingHR =
+                                                            isEditingHR =
                                                                 false;
                                                             safeSetState(() {});
                                                           },
@@ -2637,12 +2708,12 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editHR = double
+                                                            editHR = double
                                                                 .tryParse(_model
                                                                     .editHRTextController
                                                                     .text);
                                                             safeSetState(() {});
-                                                            _model.patchHR =
+                                                            patchHR =
                                                                 await PatchDeviceVitalValueCall
                                                                     .call(
                                                               deviceId:
@@ -2650,10 +2721,10 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                               jsonPath:
                                                                   'vitals/heartRate',
                                                               newValue:
-                                                                  _model.editHR,
+                                                                  editHR,
                                                             );
 
-                                                            if ((_model.patchHR
+                                                            if ((patchHR
                                                                     ?.succeeded ??
                                                                 true)) {
                                                               ScaffoldMessenger
@@ -2774,7 +2845,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     ),
                                   ),
                                 ),
-                              if (_model.isEditingFHR == true)
+                              if (isEditingFHR == true)
                                 Align(
                                   alignment: AlignmentDirectional(0.0, 1.0),
                                   child: Container(
@@ -3018,7 +3089,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.isEditingFHR =
+                                                            isEditingFHR =
                                                                 false;
                                                             safeSetState(() {});
                                                           },
@@ -3071,12 +3142,12 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editFHR = double
+                                                            editFHR = double
                                                                 .tryParse(_model
                                                                     .editFHRTextController
                                                                     .text);
                                                             safeSetState(() {});
-                                                            _model.patchFHR =
+                                                            patchFHR =
                                                                 await PatchDeviceVitalValueCall
                                                                     .call(
                                                               deviceId:
@@ -3087,7 +3158,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                   .editFHR,
                                                             );
 
-                                                            if ((_model.patchFHR
+                                                            if ((patchFHR
                                                                     ?.succeeded ??
                                                                 true)) {
                                                               ScaffoldMessenger
@@ -3208,7 +3279,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     ),
                                   ),
                                 ),
-                              if (_model.isEditingTemp == true)
+                              if (isEditingTemp == true)
                                 Align(
                                   alignment: AlignmentDirectional(0.0, 1.0),
                                   child: Container(
@@ -3454,7 +3525,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.isEditingTemp =
+                                                            isEditingTemp =
                                                                 false;
                                                             safeSetState(() {});
                                                           },
@@ -3507,13 +3578,13 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editTemp =
+                                                            editTemp =
                                                                 double.tryParse(
                                                                     _model
                                                                         .editTempTextController
                                                                         .text);
                                                             safeSetState(() {});
-                                                            _model.patchTemp =
+                                                            patchTemp =
                                                                 await PatchDeviceVitalValueCall
                                                                     .call(
                                                               deviceId:
@@ -3646,7 +3717,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     ),
                                   ),
                                 ),
-                              if (_model.isEditingBP == true)
+                              if (isEditingBP == true)
                                 Align(
                                   alignment: AlignmentDirectional(0.0, 1.0),
                                   child: Container(
@@ -4019,7 +4090,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.isEditingBP =
+                                                            isEditingBP =
                                                                 false;
                                                             safeSetState(() {});
                                                           },
@@ -4072,12 +4143,12 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editSys = double
+                                                            editSys = double
                                                                 .tryParse(_model
                                                                     .editSysTextController
                                                                     .text);
                                                             safeSetState(() {});
-                                                            _model.patchSys =
+                                                            patchSys =
                                                                 await PatchDeviceVitalValueSysCall
                                                                     .call(
                                                               deviceId:
@@ -4088,7 +4159,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                   .editSys,
                                                             );
 
-                                                            if ((_model.patchSys
+                                                            if ((patchSys
                                                                     ?.succeeded ??
                                                                 true)) {
                                                               ScaffoldMessenger
@@ -4199,12 +4270,12 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editDia = double
+                                                            editDia = double
                                                                 .tryParse(_model
                                                                     .editDiaTextController
                                                                     .text);
                                                             safeSetState(() {});
-                                                            _model.patchDia =
+                                                            patchDia =
                                                                 await PatchDeviceVitalValueDiaCall
                                                                     .call(
                                                               deviceId:
@@ -4215,7 +4286,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                   .editDia,
                                                             );
 
-                                                            if ((_model.patchDia
+                                                            if ((patchDia
                                                                     ?.succeeded ??
                                                                 true)) {
                                                               ScaffoldMessenger
@@ -4336,7 +4407,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                     ),
                                   ),
                                 ),
-                              if (_model.isEditingWeight == true)
+                              if (isEditingWeight == true)
                                 Align(
                                   alignment: AlignmentDirectional(0.0, 1.0),
                                   child: Container(
@@ -4582,7 +4653,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.isEditingWeight =
+                                                            isEditingWeight =
                                                                 false;
                                                             safeSetState(() {});
                                                           },
@@ -4635,13 +4706,13 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                       Expanded(
                                                         child: FFButtonWidget(
                                                           onPressed: () async {
-                                                            _model.editWeight =
+                                                            editWeight =
                                                                 double.tryParse(
                                                                     _model
                                                                         .editWeightTextController
                                                                         .text);
                                                             safeSetState(() {});
-                                                            _model.patchWeight =
+                                                            patchWeight =
                                                                 await PatchDeviceVitalValueCall
                                                                     .call(
                                                               deviceId:
@@ -4778,19 +4849,19 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                           ),
                           RefreshIndicator(
                             onRefresh: () async {
-                              _model.historyLoading = true;
+                              historyLoading = true;
                               safeSetState(() {});
-                              _model.historyDataString =
+                              historyDataString =
                                   await actions.getCurrentVitalsREST(
                                 FFAppState().vitalsDeviceId,
                                 FFAppState().firebaseRestApiUrl,
                               );
-                              if (_model.historyDataString != null &&
-                                  _model.historyDataString != '') {
-                                _model.vitalsHistoryString =
-                                    _model.historyDataString;
+                              if (historyDataString != null &&
+                                  historyDataString != '') {
+                                vitalsHistoryString =
+                                    historyDataString;
                                 safeSetState(() {});
-                                _model.historyLoading = false;
+                                historyLoading = false;
                                 safeSetState(() {});
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -4812,9 +4883,9 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                   ),
                                 );
                               } else {
-                                _model.historyLoading = false;
+                                historyLoading = false;
                                 safeSetState(() {});
-                                _model.vitalsHistoryString = '\"\"';
+                                vitalsHistoryString = '\"\"';
                                 safeSetState(() {});
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -4882,7 +4953,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                             .dropDownValueController ??=
                                                         FormFieldController<
                                                             String>(
-                                                      _model.dropDownValue ??=
+                                                      dropDownValue ??=
                                                           '24h',
                                                     ),
                                                     options: [
@@ -4894,8 +4965,8 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                     onChanged: (val) async {
                                                       safeSetState(() => _model
                                                           .dropDownValue = val);
-                                                      _model.selectedTimeRange =
-                                                          _model.dropDownValue!;
+                                                      selectedTimeRange =
+                                                          dropDownValue!;
                                                       safeSetState(() {});
                                                     },
                                                     width: 80.0,
@@ -4954,7 +5025,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                               children: [
                                                 Builder(
                                                   builder: (context) {
-                                                    if (_model.historyLoading ==
+                                                    if (historyLoading ==
                                                         false) {
                                                       return Builder(
                                                         builder: (context) {
@@ -5024,7 +5095,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                                               children: [
                                                                                 Text(
-                                                                                  functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'formattedTime'),
+                                                                                  functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'formattedTime'),
                                                                                   style: FlutterFlowTheme.of(context).labelMedium.override(
                                                                                         fontFamily: 'Gilroy',
                                                                                         letterSpacing: 0.0,
@@ -5032,7 +5103,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                 ),
                                                                                 Builder(
                                                                                   builder: (context) {
-                                                                                    if (functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'alerts') != '0') {
+                                                                                    if (functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'alerts') != '0') {
                                                                                       return Row(
                                                                                         mainAxisSize: MainAxisSize.max,
                                                                                         children: [
@@ -5043,7 +5114,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                           ),
                                                                                           Text(
                                                                                             'Warning: ${valueOrDefault<String>(
-                                                                                              functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'alerts'),
+                                                                                              functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'alerts'),
                                                                                               'Warning',
                                                                                             )}',
                                                                                             style: FlutterFlowTheme.of(context).bodySmall.override(
@@ -5092,7 +5163,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                     ),
                                                                                     Text(
                                                                                       valueOrDefault<String>(
-                                                                                        functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'heartRate'),
+                                                                                        functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'heartRate'),
                                                                                         '--',
                                                                                       ),
                                                                                       style: FlutterFlowTheme.of(context).titleLarge.override(
@@ -5114,7 +5185,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                     ),
                                                                                     Text(
                                                                                       valueOrDefault<String>(
-                                                                                        functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'fetalHeartRate'),
+                                                                                        functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'fetalHeartRate'),
                                                                                         '--',
                                                                                       ),
                                                                                       style: FlutterFlowTheme.of(context).titleLarge.override(
@@ -5137,7 +5208,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                     ),
                                                                                     Text(
                                                                                       valueOrDefault<String>(
-                                                                                        functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'temperature'),
+                                                                                        functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'temperature'),
                                                                                         '--',
                                                                                       ),
                                                                                       style: FlutterFlowTheme.of(context).titleLarge.override(
@@ -5160,7 +5231,7 @@ class _VitalsMonitorScreenWidgetState extends State<VitalsMonitorScreenWidget>
                                                                                     ),
                                                                                     Text(
                                                                                       valueOrDefault<String>(
-                                                                                        '${functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'systolic')}/${functions.parseHistoryEntry(_model.vitalsHistoryString!, vitalsListIndex, 'diastolic')}',
+                                                                                        '${functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'systolic')}/${functions.parseHistoryEntry(vitalsHistoryString!, vitalsListIndex, 'diastolic')}',
                                                                                         '--',
                                                                                       ),
                                                                                       style: FlutterFlowTheme.of(context).titleLarge.override(

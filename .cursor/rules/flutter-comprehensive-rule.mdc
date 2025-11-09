@@ -1,0 +1,659 @@
+---
+alwaysApply: true
+---
+
+# Flutter Clean Architecture + Riverpod & Supabase - Comprehensive Rules
+
+You are an expert in Flutter, Dart, Clean Architecture, Riverpod, Freezed, Flutter Hooks, Supabase, and modern software design patterns.
+
+## Key Principles
+
+- Write concise, technical Dart code with accurate examples
+- Prefer functional and declarative programming patterns
+- Prefer composition over inheritance and deep class hierarchies
+- Use descriptive names with auxiliary verbs (e.g., isLoading, hasError, canSubmit)
+- Keep functions small, single-purpose, and focused (< 20–30 lines)
+- Use English for all code, comments, and documentation
+- Avoid dynamic and any; always declare explicit types
+- Keep business logic and side effects out of widgets; move them to providers/use cases
+- Keep one export barrel file per layer or feature if needed (avoid huge export files)
+
+## Architecture & Project Structure
+
+### Clean Architecture with Feature-First Organization
+
+- Use Clean Architecture layers inside each feature: Presentation, Domain, and Data
+- Follow the dependency rule: dependencies always point inward (UI → Domain → Data)
+- Domain layer contains entities, repository interfaces, and use cases
+- Data layer implements repositories and contains data sources and models
+- Presentation layer contains UI components, Riverpod providers, and pages/widgets
+- Each feature should be as self-contained as possible with minimal coupling to other features
+- Use interfaces/abstract classes for repositories and data sources to enable testing and swapping implementations
+
+### Project Structure
+
+```
+lib/
+├── core/                          # Shared/common code
+│   ├── error/                     # Error handling, failures
+│   ├── network/                   # Network utilities, interceptors
+│   ├── utils/                     # Utility functions and extensions
+│   ├── theme/                     # ThemeData and design tokens
+│   ├── localization/              # AppLocalizations and i18n
+│   ├── constants/                 # App-wide constants
+│   ├── di/                        # Dependency injection setup
+│   └── widgets/                   # Reusable widgets
+├── features/                      # All app features
+│   ├── feature_a/                 # Single feature
+│   │   ├── data/                  # Data layer
+│   │   │   ├── datasources/       # Remote (Supabase) and local data sources
+│   │   │   ├── models/            # DTOs and data models
+│   │   │   └── repositories/      # Repository implementations
+│   │   ├── domain/                # Domain layer
+│   │   │   ├── entities/          # Business objects
+│   │   │   ├── repositories/      # Repository interfaces
+│   │   │   └── usecases/          # Business logic use cases
+│   │   └── presentation/          # Presentation layer
+│   │       ├── providers/         # Riverpod providers and state
+│   │       ├── pages/             # Screen widgets
+│   │       └── widgets/           # Feature-specific widgets
+│   └── feature_b/                 # Another feature with same structure
+└── main.dart                      # Entry point
+```
+
+### File Organization Within Features
+
+- Group files logically: exported widget, subwidgets, helpers, static content, and types
+- Keep one primary export per file when using barrel files
+- Keep barrel files small and focused
+
+## Dart/Flutter Best Practices
+
+### Code Style
+
+- Use const constructors and const widgets wherever possible
+- Use trailing commas to keep diffs clean and formatting stable
+- Use arrow syntax for simple methods and short functions
+- Prefer expression bodies for one-line getters and setters
+- Avoid deeply nested if/else/loops; extract helpers or use early returns
+- Keep functions at a single level of abstraction
+- Always specify parameter and return types for functions and methods
+- Don't leave blank lines within a function
+
+### Naming Conventions
+
+- Use PascalCase for classes and enums
+- Use camelCase for variables, functions, and methods
+- Use underscores_case for file and directory names
+- Use UPPERCASE for environment variables and constants
+- Name functions with verbs and intent (loadTodos, createSession, toggleFavorite)
+- Use verbs for boolean variables (isLoading, hasError, canDelete, canSubmit, shouldShow)
+- Use complete words instead of abbreviations (except standard ones: API, URL, i, j, err, ctx, req, res)
+- Start function names with verbs
+- Avoid magic numbers and define constants
+
+### Data and Immutability
+
+- Prefer immutable data structures; avoid mutating collections in place
+- Don't abuse primitive types; encapsulate data in composite types
+- Leverage Freezed for immutable state classes and unions
+- Use readonly for data that doesn't change
+- Use as const for literals that don't change
+- Avoid data validations in functions; use classes with internal validation
+
+### Widget Best Practices
+
+- Prefer stateless widgets with ConsumerWidget or HookConsumerWidget
+- Keep widget trees flat by extracting subwidgets and reusable components
+- Create small, private widget classes instead of methods like Widget _build...
+- Structure: exported widget, subwidgets, helpers, static content, types
+- Avoid nesting widgets deeply (break into smaller, focused components)
+- Keep widget classes focused (less than 200 lines)
+- Use const constructors to minimize rebuilds
+
+### UI Styling
+
+- Use ThemeData and ColorScheme instead of hardcoded colors
+- Use Theme.of(context).textTheme.titleLarge instead of deprecated headline6
+- Use AppLocalizations/localization utilities instead of hardcoded strings
+- Reuse design tokens (spacing, typography, radii) through theme or centralized constants
+- Implement responsive design using LayoutBuilder or MediaQuery
+- Keep layout responsive using flexible widgets (Expanded, Flexible)
+- Use accessible colors and contrast; avoid tiny tap targets
+
+### Performance Optimization
+
+- Use const widgets to optimize rebuilds
+- Implement efficient list rendering with ListView.builder, ListView.separated, SliverList
+- Avoid heavy work on the UI thread; use compute() or background isolates for expensive operations
+- Cache network and computed data when appropriate, invalidate on relevant events
+- Use cached_network_image for remote images with placeholders and error builders
+- Always include errorBuilder when using Image.network
+- Use AssetImage for static images
+- Be mindful of rebuilds when watching many providers; use selectors/derived providers
+- Profile and optimize render performance using Flutter DevTools
+
+## Riverpod State Management
+
+### Provider Guidelines
+
+- Use @riverpod annotation to generate providers and reduce boilerplate
+- Prefer AsyncNotifier/AsyncNotifierProvider (or Notifier variants) for complex state with side effects
+- Use AsyncValue<T> to represent loading, data, and error states
+- **Avoid StateProvider, StateNotifierProvider, and ChangeNotifierProvider** unless there's a very specific reason
+- Keep providers focused: one provider per concern (e.g., fetching list, fetching detail, performing action)
+- Use ref.watch in widgets and ref.read/ref.invalidate in callbacks and side effects
+- Cancel or dispose any long-running operations when widgets are disposed (use autoDispose providers or cancellation logic)
+- Implement proper cancellation of asynchronous operations when disposed
+- Keep business rules and data transformation inside providers/use cases, not in widgets
+- Prefer pure providers for derived/computed state (e.g., filters, sorted lists) instead of recomputing in the UI
+
+### State Management Patterns
+
+- Use AsyncValue for handling loading, error, and data states
+- Implement proper error handling with AsyncValue.guard
+- Use Freezed for state classes with union types
+- Keep state classes small and focused
+- Separate business logic into use cases; keep providers thin
+- Use copyWith on state models to update parts of the state after mutations
+- Avoid business logic in UI components
+
+### Dependency Injection
+
+- Centralize dependency injection via Riverpod providers that expose repositories and use cases
+- Can optionally use GetIt as a service locator for non-provider dependencies
+- Register dependencies by feature in separate files
+- Implement lazy initialization where appropriate
+- Use factories for transient objects and singletons for services
+- Create proper abstractions that can be easily mocked for testing
+
+## Error Handling
+
+### Functional Error Handling with Either
+
+- Use Either<Failure, Success> from Dartz for functional error handling in the data layer
+- Left represents failure case, Right represents success case
+- Create a base Failure class and extend for specific error types
+- Centralize error mapping between Supabase/backends and domain Failure types
+- Distinguish between validation errors, server errors, and connectivity errors
+
+```dart
+abstract class Failure extends Equatable {
+  final String message;
+  const Failure(this.message);
+  @override
+  List<Object> get props => [message];
+}
+
+class ServerFailure extends Failure {
+  const ServerFailure([String message = 'Server error occurred']) : super(message);
+}
+
+class NetworkFailure extends Failure {
+  const NetworkFailure([String message = 'Network error occurred']) : super(message);
+}
+
+class CacheFailure extends Failure {
+  const CacheFailure([String message = 'Cache error occurred']) : super(message);
+}
+
+class ValidationFailure extends Failure {
+  const ValidationFailure([String message = 'Validation failed']) : super(message);
+}
+
+class AuthFailure extends Failure {
+  const AuthFailure([String message = 'Authentication failed']) : super(message);
+}
+```
+
+### Error Handling in UI
+
+- Use AsyncValue for proper error handling in Riverpod
+- Display errors using SelectableText.rich with red color for visibility
+- Avoid overusing SnackBars for error messages
+- Handle empty states within the displaying screen with explicit UI (message, icon, CTAs)
+- Ensure every async flow handles loading, success, and error states consistently
+- Provide clear loading indicators tied to AsyncValue state (spinners, skeletons, shimmer)
+
+```dart
+// In UI
+ref.watch(userNotifierProvider(userId)).when(
+  data: (user) => UserDetailsWidget(user: user),
+  loading: () => const Center(child: CircularProgressIndicator()),
+  error: (error, stack) => SelectableText.rich(
+    TextSpan(
+      text: 'Error: ${error.toString()}',
+      style: const TextStyle(color: Colors.red),
+    ),
+  ),
+)
+```
+
+### Exception Strategy
+
+- Use exceptions to handle errors you don't expect
+- Implement global error handlers for uncaught exceptions
+- Add context when catching exceptions
+- Log errors for debugging and analytics
+- Avoid leaking Supabase/backend exceptions to the UI; translate them into friendly messages
+
+### Either Extension Utilities
+
+```dart
+extension EitherExtensions<L, R> on Either<L, R> {
+  R getRight() => (this as Right<L, R>).value;
+  L getLeft() => (this as Left<L, R>).value;
+  
+  Widget when({
+    required Widget Function(L failure) failure,
+    required Widget Function(R data) success,
+  }) {
+    return fold(
+      (l) => failure(l),
+      (r) => success(r),
+    );
+  }
+  
+  Either<L, T> flatMap<T>(Either<L, T> Function(R r) f) {
+    return fold(
+      (l) => Left(l),
+      (r) => f(r),
+    );
+  }
+}
+```
+
+## Domain Layer Implementation
+
+### Use Case Pattern
+
+```dart
+abstract class UseCase<Type, Params> {
+  Future<Either<Failure, Type>> call(Params params);
+}
+
+class GetUser implements UseCase<User, String> {
+  final UserRepository repository;
+
+  GetUser(this.repository);
+
+  @override
+  Future<Either<Failure, User>> call(String userId) async {
+    return await repository.getUser(userId);
+  }
+}
+
+// Usage in Riverpod provider
+@riverpod
+GetUser getUser(GetUserRef ref) {
+  return GetUser(ref.watch(userRepositoryProvider));
+}
+```
+
+### Repository Interfaces
+
+- Define clear method signatures in abstract classes
+- Repositories act as a single source of truth for data
+- Keep interfaces framework-agnostic
+
+```dart
+abstract class UserRepository {
+  Future<Either<Failure, User>> getUser(String id);
+  Future<Either<Failure, List<User>>> getUsers();
+  Future<Either<Failure, Unit>> saveUser(User user);
+}
+```
+
+### Entities
+
+- Keep entities pure with no dependencies on frameworks
+- Use Freezed for immutable entities
+- Implement proper equality and serialization
+- Entities should contain business logic validation
+- Make validation explicit; use value objects that validate their own invariants
+
+## Data Layer Implementation
+
+### Repository Implementation
+
+```dart
+class UserRepositoryImpl implements UserRepository {
+  final UserRemoteDataSource remoteDataSource;
+  final UserLocalDataSource localDataSource;
+  final NetworkInfo networkInfo;
+
+  UserRepositoryImpl({
+    required this.remoteDataSource,
+    required this.localDataSource,
+    required this.networkInfo,
+  });
+
+  @override
+  Future<Either<Failure, User>> getUser(String id) async {
+    if (await networkInfo.isConnected) {
+      try {
+        final remoteUser = await remoteDataSource.getUser(id);
+        await localDataSource.cacheUser(remoteUser);
+        return Right(remoteUser.toDomain());
+      } on ServerException catch (e) {
+        return Left(ServerFailure(e.message));
+      }
+    } else {
+      try {
+        final localUser = await localDataSource.getLastUser();
+        return Right(localUser.toDomain());
+      } on CacheException catch (e) {
+        return Left(CacheFailure(e.message));
+      }
+    }
+  }
+}
+
+// Register as Riverpod provider
+@riverpod
+UserRepository userRepository(UserRepositoryRef ref) {
+  return UserRepositoryImpl(
+    remoteDataSource: ref.watch(userRemoteDataSourceProvider),
+    localDataSource: ref.watch(userLocalDataSourceProvider),
+    networkInfo: ref.watch(networkInfoProvider),
+  );
+}
+```
+
+### Repository Best Practices
+
+- Implement caching strategies when appropriate
+- Handle network connectivity issues gracefully
+- Map data models to domain entities
+- Handle pagination and data fetching logic
+- Prefer pagination and limit queried columns for performance on large tables
+
+## Supabase & Backend Integration
+
+### Data Sources
+
+- Keep Supabase queries in the data layer inside data sources
+- Do not call Supabase directly from widgets or providers
+- Wrap Supabase operations in repositories and use cases
+- Use typed models and DTOs for mapping Supabase rows to domain entities
+
+```dart
+abstract class UserRemoteDataSource {
+  Future<UserModel> getUser(String id);
+  Future<List<UserModel>> getUsers();
+}
+
+class UserRemoteDataSourceImpl implements UserRemoteDataSource {
+  final SupabaseClient supabase;
+
+  UserRemoteDataSourceImpl({required this.supabase});
+
+  @override
+  Future<UserModel> getUser(String id) async {
+    try {
+      final response = await supabase
+          .from('users')
+          .select()
+          .eq('id', id)
+          .single();
+      return UserModel.fromJson(response);
+    } catch (e) {
+      throw ServerException(e.toString());
+    }
+  }
+}
+
+@riverpod
+UserRemoteDataSource userRemoteDataSource(UserRemoteDataSourceRef ref) {
+  return UserRemoteDataSourceImpl(
+    supabase: ref.watch(supabaseClientProvider),
+  );
+}
+```
+
+### Supabase Best Practices
+
+- Handle Supabase errors explicitly and map them to domain-level Failure types
+- Use Row Level Security (RLS) and policies on the backend; treat the client as untrusted
+- Cache frequently read data when appropriate, and invalidate or refresh on write operations
+- Where helpful, provide optimistic UI updates for simple writes with rollback on failure
+- Implement proper error handling for network errors
+
+### Models and Serialization
+
+- Use @JsonSerializable(fieldRename: FieldRename.snake) for models
+- Implement @JsonKey(includeFromJson: true, includeToJson: false) for read-only fields
+- Include createdAt, updatedAt, and isDeleted fields in database models
+- Implement toDomain() method to convert models to entities
+- Use @JsonValue(int) for enums that go to the database
+- Prefer immutable Freezed data classes for request/response models
+
+```dart
+@freezed
+class UserModel with _$UserModel {
+  const factory UserModel({
+    required String id,
+    required String name,
+    required String email,
+    @JsonKey(name: 'created_at') required DateTime createdAt,
+    @JsonKey(name: 'updated_at') required DateTime updatedAt,
+    @JsonKey(name: 'is_deleted') required bool isDeleted,
+  }) = _UserModel;
+
+  factory UserModel.fromJson(Map<String, dynamic> json) =>
+      _$UserModelFromJson(json);
+}
+
+extension UserModelX on UserModel {
+  User toDomain() => User(
+        id: id,
+        name: name,
+        email: email,
+      );
+}
+```
+
+## Presentation Layer
+
+### State Management in UI
+
+```dart
+@riverpod
+class UserNotifier extends _$UserNotifier {
+  @override
+  Future<User> build(String userId) async {
+    final result = await ref.read(getUserProvider)(userId);
+    return result.fold(
+      (failure) => throw Exception(failure.message),
+      (user) => user,
+    );
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(() async {
+      final result = await ref.read(getUserProvider)(state.value!.id);
+      return result.fold(
+        (failure) => throw Exception(failure.message),
+        (user) => user,
+      );
+    });
+  }
+}
+```
+
+### UI Implementation
+
+```dart
+class UserPage extends HookConsumerWidget {
+  final String userId;
+
+  const UserPage({super.key, required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(userNotifierProvider(userId));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('User Details'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => ref
+                .read(userNotifierProvider(userId).notifier)
+                .refresh(),
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () => ref
+            .read(userNotifierProvider(userId).notifier)
+            .refresh(),
+        child: userAsync.when(
+          data: (user) => UserDetailsWidget(user: user),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => Center(
+            child: SelectableText.rich(
+              TextSpan(
+                text: 'Error: ${error.toString()}',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+```
+
+### UI Component Best Practices
+
+- Implement RefreshIndicator for pull-to-refresh functionality
+- In TextFields, set appropriate textCapitalization, keyboardType, and textInputAction
+- Test error handling and empty states, not only the happy path
+- Keep navigation predictable and consistent with platform norms
+
+## Navigation
+
+- Use GoRouter or AutoRoute for navigation and deep linking
+- Use type-safe route parameters
+- Implement proper route guards for authentication
+- Handle deep links appropriately
+
+## Testing Strategy
+
+### Unit Tests
+
+- Write unit tests for domain logic (entities, use cases, value objects)
+- Test repositories with mocked data sources
+- Test state notifiers with mocked dependencies
+- Use mocks/fakes for Supabase and external services
+- Follow Given–When–Then (Arrange–Act–Assert) convention
+- Use clear test variable names (inputX, mockX, actualX, expectedX)
+- Aim for high coverage across domain and data layers (>80%)
+
+### Widget Tests
+
+- Test UI components in isolation
+- Test state changes and user interactions
+- Mock provider dependencies with Riverpod's ProviderContainer
+- Test error states and loading states
+- Add widget tests for core screens and complex UI flows
+
+### Integration Tests
+
+- Test complete features end-to-end
+- Test Supabase integration with test database
+- Test navigation flows
+- Test authentication and authorization
+- Use integration tests for critical paths (auth, main flows, payments)
+
+### Testing Tools
+
+- Use mocktail or mockito for mocking dependencies
+- Use Riverpod test utilities for testing providers
+
+## Code Generation
+
+- Utilize build_runner for generating code:
+  - Freezed for immutable classes and union types
+  - Riverpod Generator (@riverpod) for providers
+  - json_serializable (or Freezed's JSON support) for serialization
+- Run: `flutter pub run build_runner build --delete-conflicting-outputs`
+- Run with watch: `flutter pub run build_runner watch --delete-conflicting-outputs`
+- Keep generated files out of manual edits; never modify .g.dart or .freezed.dart manually
+
+## Additional Best Practices
+
+### Logging and Debugging
+
+- Use log (from dart:developer or logging package) instead of print
+- Keep log messages structured and meaningful
+- Avoid logging sensitive data
+- Implement proper logging strategy with log levels
+
+### Code Formatting
+
+- Keep lines no longer than 80 characters
+- Add trailing commas before closing brackets for multi-parameter functions
+- Use consistent formatting with dart format
+
+### Code Quality
+
+- Use flutter_lints package (and stricter lints if desired) to enforce style
+- Follow SOLID principles throughout the codebase
+- Keep classes small with a single purpose (less than 200 lines, less than 10 public methods, less than 10 properties)
+- Avoid leaving commented-out code; remove or document why it must stay
+
+### Documentation
+
+- Document complex logic and non-obvious code decisions
+- Document public APIs, entities, and providers with /// comments
+- Keep README or architecture docs describing feature structure, layers, and main flows
+- When adding a new feature, briefly document its directory structure and data flow
+- Follow official Flutter, Riverpod, Freezed, and Supabase documentation
+
+### Extensions and Utilities
+
+- Use extensions to add functionality to existing classes (DateTimeX, StringX)
+- Create extension methods for common operations and reusable formatting
+- Group related utilities in appropriate files
+- Make utilities pure functions when possible
+
+## Classes and Functions
+
+### Classes
+
+- Follow SOLID principles
+- Prefer composition over inheritance
+- Declare interfaces to define contracts
+- Write small classes with a single purpose
+
+### Functions
+
+- Write short functions with a single purpose
+- Avoid nesting blocks by using early checks and returns, or extraction to utility functions
+- Use higher-order functions (map, filter, reduce, fold) to avoid function nesting
+- Use default parameter values instead of checking for null or undefined
+- Reduce function parameters using objects to pass multiple parameters
+- Use a single level of abstraction
+
+## Critical Reminders
+
+- **Never use StateProvider, StateNotifierProvider, or ChangeNotifierProvider**
+- Always use Either<Failure, Success> for data layer operations
+- Keep domain layer pure with no framework dependencies
+- Follow feature-first organization strictly
+- Use Freezed for all state classes and DTOs
+- Implement proper error handling at every layer
+- Write tests for business logic and state management
+- Use const constructors to optimize performance
+- Keep widgets small and focused
+- Follow SOLID principles and clean code practices
+- Keep business logic out of widgets; use providers and use cases
+- Always declare explicit types; avoid dynamic and any
+- Use interfaces/abstract classes for testable, swappable implementations
+
+Refer to official Flutter, Riverpod, Freezed, and Supabase documentation for detailed implementation guidelines and best practices.
