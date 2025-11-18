@@ -63,9 +63,10 @@ export const scripExecutor =
     root: Record<string, any>,
     subNodes: Record<string, Function> = {}
   ) => {
-    const {
-      default: { default: script },
-    } = await import(`../../scripts/${nodeId}.cjs`);
+    // Import CommonJS module - the default export is the function itself
+    const scriptModule = await import(`../../scripts/${nodeId}.cjs`);
+    const script = scriptModule.default;
+    
     // Import nodes from the cancerApp directory
     const { nodes } = await import("../cancerApp/nodes");
     const node = nodes.find((node: any) => node.id === nodeId);
