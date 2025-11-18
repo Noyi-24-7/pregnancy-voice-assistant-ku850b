@@ -66,7 +66,8 @@ export const scripExecutor =
     const {
       default: { default: script },
     } = await import(`../../scripts/${nodeId}.cjs`);
-    const { nodes } = await import(path.join(workflowDirectory, "nodes"));
+    // Import nodes from the cancerApp directory
+    const { nodes } = await import("../cancerApp/nodes");
     const node = nodes.find((node: any) => node.id === nodeId);
     if (!node) {
       throw new Error(`Node with ID ${nodeId} not found.`);

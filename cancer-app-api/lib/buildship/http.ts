@@ -184,7 +184,8 @@ export async function fetchRequest(
 
 export const httpExecutor =
   (workflowDirectory: string) => async (nodeId: string, args: Record<string, any>) => {
-    const { nodes } = await import(path.join(workflowDirectory, "nodes"));
+    // Import nodes from the cancerApp directory
+    const { nodes } = await import("../cancerApp/nodes");
     const node = nodes.find((n: any) => n.id === nodeId);
     if (!node) throw new Error(`Node with id ${nodeId} not found`);
 

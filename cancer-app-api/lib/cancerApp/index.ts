@@ -4,12 +4,10 @@ import "dotenv/config";
 import pMap from "p-map";
 import { getSecret, scripExecutor, parseExpression, setResult, duplicateState, executeWorkflow } from "../buildship/utils";
 import { httpExecutor } from "../buildship/http";
-import path from 'path';
 
-// Use absolute path to scripts directory
-const scriptsDir = path.join(process.cwd(), 'scripts');
-const executeScript = scripExecutor(scriptsDir);
-const executeHttp = httpExecutor(scriptsDir);
+// The workflowDirectory parameter is not used anymore since we import nodes directly
+const executeScript = scripExecutor("");
+const executeHttp = httpExecutor("");
 
 enum NODES {
     "uploadInputAudioToStorage" = "e25c9a7a-7e2d-492f-90d8-6e1139f8a67f",
